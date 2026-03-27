@@ -39,6 +39,16 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
+    - name: Install pnpm and build react-doctor
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        npm install -g pnpm@10
+        cd "$GITHUB_ACTION_PATH"
+        pnpm install --frozen-lockfile
+        pnpm build
+
     - shell: bash
       env:
         INPUT_DIRECTORY: ${{ inputs.directory }}
