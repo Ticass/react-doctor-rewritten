@@ -46,7 +46,7 @@ runs:
       run: |
         npm install -g pnpm@10
         cd "$GITHUB_ACTION_PATH"
-        pnpm install --frozen-lockfile
+        pnpm install --no-frozen-lockfile
         pnpm build
 
     - shell: bash
