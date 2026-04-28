@@ -10,9 +10,9 @@
     "url": "https://github.com/aidenybai/react-doctor.git"
   },
   "scripts": {
-    "dev": "pnpm --filter react-doctor run dev",
-    "build": "pnpm --filter react-doctor run build",
-    "test": "pnpm --filter react-doctor run test",
+    "dev": "pnpm --filter react-doctor-rewritten run dev",
+    "build": "pnpm --filter react-doctor-rewritten run build",
+    "test": "pnpm --filter react-doctor-rewritten run test",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
