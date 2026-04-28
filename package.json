@@ -1,6 +1,6 @@
 {
   "name": "react-doctor-rewritten",
-  "private": true,
+  "private": false,
   "homepage": "https://github.com/Ticass/react-doctor#readme",
   "version": "1.0.0",
   "bugs": {
