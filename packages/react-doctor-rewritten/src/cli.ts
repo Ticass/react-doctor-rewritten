@@ -181,7 +181,7 @@ const program = new Command()
 
       const isDiffCliOverride = program.getOptionValueSource("diff") === "cli";
       const configuredDiff = isDiffCliOverride ? flags.diff : userConfig?.diff;
-      const effectiveDiff = flags.hideBrandingPr ? true : configuredDiff;
+        const effectiveDiff = flags.hideBrandingPr ? true : flags.hideBranding ? false : configuredDiff;
       const explicitBaseBranch = typeof effectiveDiff === "string" ? effectiveDiff : undefined;
       const diffInfo = getDiffInfo(resolvedDirectory, explicitBaseBranch);
       const isDiffMode = await resolveDiffMode(
