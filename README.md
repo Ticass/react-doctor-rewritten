@@ -116,66 +116,140 @@ name: react-doctor
 on:
   pull_request:
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   full-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npx -y react-doctor-rewritten . --hide-branding > report.html
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Run full scan
+        run: npx -y react-doctor-rewritten@0.0.7 . --hide-branding > report.html
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-doctor-full-report
+          path: report.html
+
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require("fs");
-            const body = fs.readFileSync("report.html", "utf8");
-            const marker = "<!-- react-doctor-thread:full -->";
-            const { data: comments } = await github.rest.issues.listComments({
-              ...context.repo, issue_number: context.issue.number,
-            });
-            const prev = comments.find(c => c.body?.includes(marker));
-            if (prev) {
-              await github.rest.issues.updateComment({
-                ...context.repo, comment_id: prev.id, body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                ...context.repo, issue_number: context.issue.number, body,
-              });
-            }
+            const run = require('./.github/scripts/comment-report.cjs');
+            await run({ github, context, core });
+        env:
+          MARKER: "<!-- react-doctor-thread:full -->"
+          ARTIFACT_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
   pr-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npx -y react-doctor-rewritten . --hide-branding-pr > report.html
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Run PR scan
+        run: npx -y react-doctor-rewritten@0.0.7 . --hide-branding-pr > report.html
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: react-doctor-pr-report
+          path: report.html
+
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require("fs");
-            const body = fs.readFileSync("report.html", "utf8");
-            const marker = "<!-- react-doctor-thread:pr -->";
-            const { data: comments } = await github.rest.issues.listComments({
-              ...context.repo, issue_number: context.issue.number,
-            });
-            const prev = comments.find(c => c.body?.includes(marker));
-            if (prev) {
-              await github.rest.issues.updateComment({
-                ...context.repo, comment_id: prev.id, body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                ...context.repo, issue_number: context.issue.number, body,
-              });
-            }
+            const run = require('./.github/scripts/comment-report.cjs');
+            await run({ github, context, core });
+        env:
+          MARKER: "<!-- react-doctor-thread:pr -->"
+          ARTIFACT_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+```
+
+```
+const fs = require("fs");
+
+const MAX_COMMENT_LENGTH = 60000;
+
+module.exports = async function ({ github, context, core }) {
+  const marker = process.env.MARKER;
+  const path = process.env.REPORT_PATH || "report.html";
+  const artifactUrl = process.env.ARTIFACT_URL;
+
+  if (!marker) {
+    throw new Error("MARKER env var is required");
+  }
+
+  if (!fs.existsSync(path)) {
+    core.info(`${path} not found, skipping comment.`);
+    return;
+  }
+
+  const report = fs.readFileSync(path, "utf8").trim();
+
+  if (!report) {
+    core.info(`${path} is empty, skipping comment.`);
+    return;
+  }
+
+  let finalReport = report;
+
+  if (report.length > MAX_COMMENT_LENGTH) {
+    core.info("Report exceeds GitHub comment limit, truncating.");
+
+    finalReport =
+      report.slice(0, MAX_COMMENT_LENGTH) +
+      "\n\n---\n⚠️ Report truncated due to size limits.";
+
+    if (artifactUrl) {
+      finalReport += `\n📎 Full report: ${artifactUrl}`;
+    }
+  }
+
+  const body = `${marker}\n${finalReport}`;
+
+  const comments = await github.paginate(
+    github.rest.issues.listComments,
+    {
+      ...context.repo,
+      issue_number: context.issue.number,
+      per_page: 100,
+    }
+  );
+
+  const prev = comments.find(c => c.body?.includes(marker));
+
+  if (prev) {
+    await github.rest.issues.updateComment({
+      ...context.repo,
+      comment_id: prev.id,
+      body,
+    });
+  } else {
+    await github.rest.issues.createComment({
+      ...context.repo,
+      issue_number: context.issue.number,
+      body,
+    });
+  }
+};
 ```
 
 `fetch-depth: 0` is required so `--hide-branding-pr` can compute the diff against the base branch.
